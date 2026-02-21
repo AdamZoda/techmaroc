@@ -12,7 +12,7 @@ const Model3D = lazy(() => import('../components/Model3D'));
 // Vous pouvez changer le "scale" pour chaque modèle ici :
 const MODELS = [
   { url: '/3D/MOD1.glb', scale: 0.7 },
-  { url: '/3D/MOD2.glb', scale: 40 }, // Modifier ici pour le 2ème modèle
+  { url: '/3D/MOD2.glb', scale: 0.6 }, // Modifier ici pour le 2ème modèle
   { url: '/3D/MOD3.glb', scale: 0.8 }
 ];
 
