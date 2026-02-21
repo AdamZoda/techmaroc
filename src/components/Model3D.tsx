@@ -1,20 +1,18 @@
-import { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useGLTF, Stage, OrbitControls, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
+import { MODELS, PRELOAD_DELAY } from '../constants/models';
 
 // --- Sequential Preload Logic ---
-const PRELOAD_ORDER = ['/3D/MOD1.glb', '/3D/MOD2.glb', '/3D/MOD3.glb'];
+const PRELOAD_ORDER = MODELS.map(m => m.url);
 
 const PreloadManager = () => {
     useEffect(() => {
         const loadSequentially = async () => {
-            // First one is usually already loading by the main Model component
-            // We preload the others one by one to avoid network saturation
             for (const path of PRELOAD_ORDER) {
                 try {
                     await useGLTF.preload(path);
-                    // Small delay between preloads to keep main thread free
-                    await new Promise(r => setTimeout(r, 1500));
+                    await new Promise(r => setTimeout(r, PRELOAD_DELAY));
                 } catch (e) {
                     console.warn('Preload failed:', path);
                 }
@@ -26,19 +24,21 @@ const PreloadManager = () => {
 };
 
 // --- AJUSTEMENT DE LA TAILLE ---
-function Model({ url, scale = 1 }: { url: string; scale?: number }) {
+const Model = memo(({ url, scale = 1 }: { url: string; scale?: number }) => {
     const { scene } = useGLTF(url);
     return <primitive object={scene} scale={scale} />;
-}
+});
+
+Model.displayName = 'Model3DInner';
 
 interface Model3DProps {
     url?: string;
     scale?: number;
 }
 
-export default function Model3D({ url = '/3D/MOD1.glb', scale = 0.7 }: Model3DProps) {
+export default function Model3D({ url = MODELS[0].url, scale = MODELS[0].scale }: Model3DProps) {
     return (
-        <div className="w-full h-[500px] cursor-grab active:cursor-grabbing">
+        <div className="w-full h-[400px] md:h-[500px] cursor-grab active:cursor-grabbing">
             <PreloadManager />
             <Canvas
                 shadows="soft"

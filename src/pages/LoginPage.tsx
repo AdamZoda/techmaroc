@@ -22,15 +22,9 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 Login/Register Form Submitted');
-    setError('');
-    setIsSubmitting(true);
-
     try {
       if (isLogin) {
-        console.log('📡 Calling login handle...');
         const { error: loginError } = await login(email, password);
-        console.log('📥 Login Result Error:', loginError);
         if (loginError) {
           if (loginError.includes('Invalid login credentials')) {
             setError('Email ou mot de passe incorrect.');
@@ -41,18 +35,15 @@ export default function LoginPage() {
           }
           return;
         }
-        console.log('🏃 Navigating to profile/admin...');
         // Navigate immediately — ProtectedRoute handles admin access
         navigate(from || '/profile', { replace: true });
       } else {
         // Register
-        console.log('📡 Calling register handle...');
         if (password.length < 6) {
           setError('Le mot de passe doit contenir au moins 6 caractères.');
           return;
         }
         const { error: regError } = await register(email, password, name);
-        console.log('📥 Register Result Error:', regError);
         if (regError) {
           if (regError.includes('already registered')) {
             setError('Un compte existe déjà avec cet email.');
@@ -64,10 +55,8 @@ export default function LoginPage() {
         setRegisterSuccess(true);
       }
     } catch (err: any) {
-      console.error('🔥 handleSubmit Catch:', err);
       setError('Erreur de connexion. Vérifiez votre connexion internet.');
     } finally {
-      console.log('🏁 Setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };

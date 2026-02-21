@@ -8,13 +8,7 @@ import { SiteConfig, Product } from '../types';
 
 const Model3D = lazy(() => import('../components/Model3D'));
 
-// --- MODIFICATION DE LA TAILLE INDIVIDUELLE ---
-// Vous pouvez changer le "scale" pour chaque modèle ici :
-const MODELS = [
-  { url: '/3D/MOD1.glb', scale: 0.7 },
-  { url: '/3D/MOD2.glb', scale: 0.6 }, // Modifier ici pour le 2ème modèle
-  { url: '/3D/MOD3.glb', scale: 0.8 }
-];
+import { MODELS } from '../constants/models';
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -130,10 +124,10 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="hidden lg:flex flex-col justify-center items-center relative flex-1 min-h-[500px]">
-              <div key={currentModelIndex} className="w-full">
+            <div className="flex flex-col justify-center items-center relative flex-1 min-h-[400px] md:min-h-[500px]">
+              <div className="w-full">
                 <Suspense fallback={
-                  <div className="w-full h-[500px] flex flex-col items-center justify-center relative">
+                  <div className="w-full h-[400px] md:h-[500px] flex flex-col items-center justify-center relative">
                     <div className="relative">
                       <div className="w-20 h-20 border-2 border-primary/20 rounded-2xl animate-[spin_3s_linear_infinite]" />
                       <div className="absolute inset-0 w-20 h-20 border-t-2 border-primary rounded-2xl animate-[spin_1.5s_ease-out_infinite]" />
@@ -157,7 +151,7 @@ export default function HomePage() {
                 {MODELS.map((_, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setCurrentModelIndex(idx)}
+                    onClick={() => startTransition(() => setCurrentModelIndex(idx))}
                     className={`w-3 h-3 rounded-full transition-all duration-300 ${currentModelIndex === idx
                       ? 'bg-primary w-8 shadow-lg shadow-primary/40'
                       : 'bg-white/20 hover:bg-white/40'

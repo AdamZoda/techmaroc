@@ -40,7 +40,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await Promise.race([fetchPromise, profileTimeout]);
 
       if (error || !data) {
-        console.warn('⚠️ Profile not found or error:', error?.message);
         // Fallback to minimal user object
         const minimal: User = {
           id: userId,
@@ -54,7 +53,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.log('✅ Profile Fetched Successfully:', data.role);
       setUser({
         id: data.id,
         name: data.full_name || email.split('@')[0],
@@ -65,7 +63,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         avatar: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.full_name || email)}&background=7c3aed&color=fff`,
       });
     } catch (err: any) {
-      console.error('💥 fetchProfile Exception:', err.message || err);
+      console.error('💥 Profile fetch failed:', err.message || err);
       // Ensure we don't leave the user null if they are signed in
       setUser({
         id: userId,
@@ -89,7 +87,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // onAuthStateChange fires INITIAL_SESSION on mount in Supabase v2
     // We make this non-blocking to prevent signInWithPassword from hanging
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔄 Auth State Event:', event, 'User:', session?.user?.email);
       if (!mounted) return;
 
       const finishLoading = () => {
@@ -116,8 +113,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile]);
 
   const login = async (email: string, password: string): Promise<{ error: string | null }> => {
-    console.log('🔑 Attempting Login for:', email);
-
     // 10 second timeout for the auth call
     const timeout = new Promise<any>((_, reject) =>
       setTimeout(() => reject(new Error('Le délai d\'attente est dépassé (Timeout)')), 10000)
@@ -128,10 +123,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await Promise.race([authPromise, timeout]);
 
       if (error) {
-        console.error('❌ Login Error:', error.message);
         return { error: error.message };
       }
-      console.log('✅ Login Successful for:', data.user?.email);
       return { error: null };
     } catch (err: any) {
       console.error('💥 Login Exception:', err.message || err);
@@ -140,8 +133,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (email: string, password: string, name: string): Promise<{ error: string | null }> => {
-    console.log('📝 Attempting Registration for:', email);
-
     // 10 second timeout for the auth call
     const timeout = new Promise<any>((_, reject) =>
       setTimeout(() => reject(new Error('Le délai d\'attente est dépassé (Timeout)')), 10000)
@@ -156,10 +147,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await Promise.race([authPromise, timeout]);
 
       if (error) {
-        console.error('❌ Registration Error:', error.message);
         return { error: error.message };
       }
-      console.log('✅ Registration Initialized for:', data.user?.email);
       return { error: null };
     } catch (err: any) {
       console.error('💥 Registration Exception:', err.message || err);
