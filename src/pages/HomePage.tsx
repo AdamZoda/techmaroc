@@ -1,91 +1,173 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense, useMemo, useTransition } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, ShieldCheck, Clock } from 'lucide-react';
-import { mockBackend } from '../services/mockBackend';
+import { getProducts, getSiteConfig } from '../services/supabaseService';
 import ProductCard from '../components/ProductCard';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SiteConfig, Product } from '../types';
-import TrueFocus from '../components/TrueFocus';
+
+const Model3D = lazy(() => import('../components/Model3D'));
+
+// --- MODIFICATION DE LA TAILLE INDIVIDUELLE ---
+// Vous pouvez changer le "scale" pour chaque modèle ici :
+const MODELS = [
+  { url: '/3D/MOD1.glb', scale: 0.7 },
+  { url: '/3D/MOD2.glb', scale: 40 }, // Modifier ici pour le 2ème modèle
+  { url: '/3D/MOD3.glb', scale: 0.8 }
+];
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [config, setConfig] = useState<SiteConfig | null>(null);
+  const [currentModelIndex, setCurrentModelIndex] = useState(0);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setProducts(mockBackend.getProducts().filter(p => p.isBestSeller));
-    setConfig(mockBackend.getSiteConfig());
+    const fetchConfig = () => getSiteConfig().then(setConfig);
+    getProducts().then(all => setProducts(all.filter(p => p.isBestSeller)));
+    fetchConfig();
+
+    window.addEventListener('siteConfigUpdated', fetchConfig);
+    return () => window.removeEventListener('siteConfigUpdated', fetchConfig);
   }, []);
+
+  // Rotate 3D models every 60 seconds (Adjusted from 120s for better visibility while keeping it calm)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      startTransition(() => {
+        setCurrentModelIndex((prev) => (prev + 1) % MODELS.length);
+      });
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getYouTubeId = (url: string) => {
+    // Enhanced regex to support Shorts and common YouTube URL variants
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const background = useMemo(() => {
+    if (config?.hero.bgType === 'video' && config.hero.videoUrl) {
+      const ytId = getYouTubeId(config.hero.videoUrl);
+
+      if (ytId) {
+        return (
+          <div className="absolute inset-0 w-full h-full pointer-events-none opacity-40">
+            <iframe
+              className="w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&enablejsapi=1&modestbranding=1&iv_load_policy=3`}
+              allow="autoplay; encrypted-media"
+              frameBorder="0"
+              loading="lazy"
+            />
+          </div>
+        );
+      }
+
+      return (
+        <video
+          key={config.hero.videoUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-40 pointer-events-none"
+        >
+          <source src={config.hero.videoUrl} type="video/mp4" />
+          <source src={config.hero.videoUrl} />
+        </video>
+      );
+    }
+
+    return (
+      <img
+        src={config?.hero.image || "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?q=80&w=2574&auto=format&fit=crop"}
+        alt="Gaming Setup"
+        className="absolute inset-0 w-full h-full object-cover opacity-40"
+      />
+    );
+  }, [config?.hero.bgType, config?.hero.videoUrl, config?.hero.image]);
 
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section */}
-      <section className="relative min-h-screen bg-gray-900 text-white overflow-hidden flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/95 to-purple-900/50 z-10" />
-        <img 
-          src={config?.hero.image || "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?q=80&w=2574&auto=format&fit=crop"}
-          alt="Gaming Setup" 
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
-        />
-        
+      <section className="relative min-h-screen text-white overflow-hidden flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/40 to-transparent z-10 pointer-events-none" />
+
+        <div className="absolute inset-0 z-0 transform-gpu translate-z-0">
+          {background}
+        </div>
+
         <div className="relative z-20 max-w-7xl mx-auto px-4 w-full pt-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
+            <div>
               <span className="inline-block px-4 py-1 bg-white/10 backdrop-blur-md rounded-full text-sm font-bold mb-4 border border-white/20">
                 NOUVELLE COLLECTION 2024
               </span>
               <div className="mb-6">
-                <TrueFocus 
-                  sentence="TECHMAROC GAMING"
-                  manualMode={false}
-                  blurAmount={5}
-                  borderColor="#7c3aed"
-                  animationDuration={0.5}
-                  pauseBetweenAnimations={1}
-                />
+                <h1 className="text-5xl md:text-7xl font-black font-display tracking-tight text-white leading-tight">
+                  {config?.hero.title || "TECHMAROC GAMING"}
+                </h1>
               </div>
               <p className="text-gray-300 text-lg max-w-xl mb-8">
                 {config?.hero.subtitle || "Découvrez nos PC Gamer assemblés avec passion pour des performances extrêmes."}
               </p>
               <div className="flex gap-4">
-                <Link 
-                  to="/category/pc-gamer" 
+                <Link
+                  to="/category/pc-gamer"
                   className="px-8 py-4 bg-primary hover:bg-white hover:text-primary text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center gap-2"
                 >
                   ACHETER MAINTENANT <ArrowRight size={20} />
                 </Link>
-                <Link 
-                  to="/configurator" 
+                <Link
+                  to="/configurator"
                   className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold rounded-xl transition-all border border-white/20"
                 >
                   CONFIGURATEUR PC
                 </Link>
               </div>
-            </motion.div>
+            </div>
 
-            {/* Hero Image */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="hidden lg:flex justify-center items-center relative"
-            >
-              <motion.div
-                animate={{ y: [0, -20, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="relative z-10"
-              >
-                <img 
-                  src="https://assets.corsair.com/image/upload/f_auto,q_auto/v1/products/Systems/CORSAIR-VENGEANCE-i7500-SERIES/Gallery/Vengeance_i7500_01.webp" 
-                  alt="PC Gamer Extreme" 
-                  className="w-full max-w-md h-auto drop-shadow-2xl transform hover:scale-105 transition-transform duration-500"
-                />
-              </motion.div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] -z-10" />
-            </motion.div>
+            <div className="hidden lg:flex flex-col justify-center items-center relative flex-1 min-h-[500px]">
+              <div key={currentModelIndex} className="w-full">
+                <Suspense fallback={
+                  <div className="w-full h-[500px] flex flex-col items-center justify-center relative">
+                    <div className="relative">
+                      <div className="w-20 h-20 border-2 border-primary/20 rounded-2xl animate-[spin_3s_linear_infinite]" />
+                      <div className="absolute inset-0 w-20 h-20 border-t-2 border-primary rounded-2xl animate-[spin_1.5s_ease-out_infinite]" />
+                    </div>
+                    <div className="mt-6 text-center">
+                      <p className="text-primary font-bold tracking-widest uppercase text-[10px] animate-pulse">
+                        Synchronisation Setup {currentModelIndex + 1}
+                      </p>
+                    </div>
+                  </div>
+                }>
+                  <Model3D
+                    url={MODELS[currentModelIndex].url}
+                    scale={MODELS[currentModelIndex].scale}
+                  />
+                </Suspense>
+              </div>
+
+              {/* Manual Switch Controls */}
+              <div className="flex gap-3 mt-4 z-30">
+                {MODELS.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentModelIndex(idx)}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${currentModelIndex === idx
+                      ? 'bg-primary w-8 shadow-lg shadow-primary/40'
+                      : 'bg-white/20 hover:bg-white/40'
+                      }`}
+                    title={`Setup ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+            </div>
           </div>
         </div>
       </section>
@@ -115,10 +197,11 @@ export default function HomePage() {
       {/* Banner */}
       <section className="max-w-7xl mx-auto px-4">
         <div className="relative rounded-3xl overflow-hidden h-80 bg-gray-900 flex items-center">
-          <img 
-            src="https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2542&auto=format&fit=crop" 
-            alt="Promotion" 
-            className="absolute inset-0 w-full h-full object-cover opacity-50"
+          <img
+            src="https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2542&auto=format&fit=crop"
+            alt="Promotion"
+            loading="lazy"
+            className="absolute inset-0 w-full h-full object-cover opacity-50 transition-opacity duration-700"
           />
           <div className="relative z-10 p-12 max-w-2xl">
             <span className="text-primary font-bold tracking-wider uppercase mb-2 block">Offre Spéciale</span>

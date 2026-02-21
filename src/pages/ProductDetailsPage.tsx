@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { mockBackend } from '../services/mockBackend';
+import { getProducts } from '../services/supabaseService';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
 import { ShoppingCart, Heart, Share2, ChevronRight, Home, Check, Truck, Shield } from 'lucide-react';
@@ -13,12 +13,13 @@ export default function ProductDetailsPage() {
   const { addToCart } = useCart();
 
   useEffect(() => {
-    const products = mockBackend.getProducts();
-    const found = products.find(p => p.id === id);
-    if (found) {
-      setProduct(found);
-      setActiveImage(found.image);
-    }
+    getProducts().then(products => {
+      const found = products.find(p => p.id === id);
+      if (found) {
+        setProduct(found);
+        setActiveImage(found.image);
+      }
+    });
   }, [id]);
 
   if (!product) {
@@ -48,13 +49,13 @@ export default function ProductDetailsPage() {
             {/* Gallery */}
             <div className="p-8 bg-white border-r border-gray-100">
               <div className="relative h-[400px] mb-6 flex items-center justify-center">
-                <motion.img 
+                <motion.img
                   key={activeImage}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
-                  src={activeImage} 
-                  alt={product.name} 
+                  src={activeImage}
+                  alt={product.name}
                   className="max-h-full max-w-full object-contain"
                 />
                 {product.isPromo && (
@@ -65,7 +66,7 @@ export default function ProductDetailsPage() {
               </div>
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {allImages.map((img, idx) => (
-                  <button 
+                  <button
                     key={idx}
                     onClick={() => setActiveImage(img)}
                     className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center p-2 transition-all ${activeImage === img ? 'border-primary bg-primary/5' : 'border-gray-100 hover:border-gray-200'}`}
@@ -125,7 +126,7 @@ export default function ProductDetailsPage() {
               {/* Actions */}
               <div className="space-y-4 pt-8 border-t border-gray-100">
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     onClick={() => addToCart(product)}
                     className="flex-1 py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
                   >
@@ -138,7 +139,7 @@ export default function ProductDetailsPage() {
                     <Share2 size={24} />
                   </button>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-2">
                     <Truck size={16} className="text-primary" /> Livraison partout au Maroc

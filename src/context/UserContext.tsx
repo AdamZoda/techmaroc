@@ -1,15 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Order } from '../types';
-import { mockBackend } from '../services/mockBackend';
+import { supabase } from '../lib/supabase';
+import { getOrdersByUser, updateProfile as updateProfileDB } from '../services/supabaseService';
 
 interface UserContextType {
   user: User | null;
-  login: (email: string) => void;
-  logout: () => void;
-  updateProfile: (updates: Partial<User>) => void;
+  login: (email: string, password: string) => Promise<{ error: string | null }>;
+  register: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<User>) => Promise<void>;
   isAuthenticated: boolean;
-  saveOrder: (order: Order) => void;
-  getOrders: () => Order[];
+  isAdmin: boolean;
+  saveOrder: (order: Order) => Promise<void>;
+  getOrders: () => Promise<Order[]>;
   isLoading: boolean;
 }
 
@@ -19,74 +22,192 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check local storage for logged in user session
-    const storedUserId = localStorage.getItem('currentUserId');
-    if (storedUserId) {
-      const users = mockBackend.getUsers();
-      const found = users.find(u => u.id === storedUserId);
-      if (found) setUser(found);
-    }
-    setIsLoading(false);
-  }, []);
+  const fetchProfile = useCallback(async (userId: string, email: string) => {
+    console.log('👤 Fetching Profile for:', userId);
 
-  const login = (email: string) => {
-    // Simple mock login
-    const users = mockBackend.getUsers();
-    const found = users.find(u => u.email === email);
-    if (found) {
-      setUser(found);
-      localStorage.setItem('currentUserId', found.id);
-    } else {
-      // Create new user if not exists (for demo)
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+    // 5 second timeout for profile fetch specifically
+    const profileTimeout = new Promise<any>((_, reject) =>
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+    );
+
+    try {
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      const { data, error } = await Promise.race([fetchPromise, profileTimeout]);
+
+      if (error || !data) {
+        console.warn('⚠️ Profile not found or error:', error?.message);
+        // Fallback to minimal user object
+        const minimal: User = {
+          id: userId,
+          name: email.split('@')[0],
+          email,
+          role: 'user',
+          status: 'active',
+          avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=7c3aed&color=fff`,
+        };
+        setUser(minimal);
+        return;
+      }
+
+      console.log('✅ Profile Fetched Successfully:', data.role);
+      setUser({
+        id: data.id,
+        name: data.full_name || email.split('@')[0],
+        email: data.email || email,
+        role: data.role as User['role'],
+        status: (data.status as User['status']) || 'active',
+        phone: data.phone ?? undefined,
+        avatar: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.full_name || email)}&background=7c3aed&color=fff`,
+      });
+    } catch (err: any) {
+      console.error('💥 fetchProfile Exception:', err.message || err);
+      // Ensure we don't leave the user null if they are signed in
+      setUser({
+        id: userId,
         name: email.split('@')[0],
         email,
         role: 'user',
         status: 'active',
-        avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=random`
+        avatar: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=7c3aed&color=fff`,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Safety timeout — if Supabase doesn't respond in 5s, unblock the UI
+    const timeout = setTimeout(() => {
+      if (mounted) setIsLoading(false);
+    }, 5000);
+
+    // onAuthStateChange fires INITIAL_SESSION on mount in Supabase v2
+    // We make this non-blocking to prevent signInWithPassword from hanging
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth State Event:', event, 'User:', session?.user?.email);
+      if (!mounted) return;
+
+      const finishLoading = () => {
+        if (mounted) {
+          clearTimeout(timeout);
+          setIsLoading(false);
+        }
       };
-      // In a real app we would call backend to create user
-      // For now we just set it in state, but mockBackend doesn't have createUser exposed publicly in this context easily without reloading
-      // Let's just use the mockBackend.getUsers() again to be safe if we added it
-      // Actually, let's just assume for this demo we log in as 'u2' if email matches, else 'u1'
-      
-      // Better: Just set the user state directly for the demo
-      setUser(newUser);
-      localStorage.setItem('currentUserId', newUser.id);
+
+      if (session?.user) {
+        // Start profile fetch but don't wait for it to return the listener
+        fetchProfile(session.user.id, session.user.email || '').finally(finishLoading);
+      } else {
+        setUser(null);
+        finishLoading();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+      listener.subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
+
+  const login = async (email: string, password: string): Promise<{ error: string | null }> => {
+    console.log('🔑 Attempting Login for:', email);
+
+    // 10 second timeout for the auth call
+    const timeout = new Promise<any>((_, reject) =>
+      setTimeout(() => reject(new Error('Le délai d\'attente est dépassé (Timeout)')), 10000)
+    );
+
+    try {
+      const authPromise = supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await Promise.race([authPromise, timeout]);
+
+      if (error) {
+        console.error('❌ Login Error:', error.message);
+        return { error: error.message };
+      }
+      console.log('✅ Login Successful for:', data.user?.email);
+      return { error: null };
+    } catch (err: any) {
+      console.error('💥 Login Exception:', err.message || err);
+      return { error: err.message || 'Erreur de connexion' };
     }
   };
 
-  const logout = () => {
+  const register = async (email: string, password: string, name: string): Promise<{ error: string | null }> => {
+    console.log('📝 Attempting Registration for:', email);
+
+    // 10 second timeout for the auth call
+    const timeout = new Promise<any>((_, reject) =>
+      setTimeout(() => reject(new Error('Le délai d\'attente est dépassé (Timeout)')), 10000)
+    );
+
+    try {
+      const authPromise = supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
+      const { data, error } = await Promise.race([authPromise, timeout]);
+
+      if (error) {
+        console.error('❌ Registration Error:', error.message);
+        return { error: error.message };
+      }
+      console.log('✅ Registration Initialized for:', data.user?.email);
+      return { error: null };
+    } catch (err: any) {
+      console.error('💥 Registration Exception:', err.message || err);
+      return { error: err.message || 'Erreur de connexion' };
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('currentUserId');
   };
 
-  const updateProfile = (updates: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      mockBackend.updateUser(updatedUser);
-    }
-  };
-
-  const saveOrder = (order: Order) => {
+  const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
-    const key = `orders_${user.id}`;
-    const currentOrders = JSON.parse(localStorage.getItem(key) || '[]');
-    const newOrders = [order, ...currentOrders];
-    localStorage.setItem(key, JSON.stringify(newOrders));
+    const dbUpdates: { full_name?: string; phone?: string; avatar_url?: string } = {};
+    if (updates.name) dbUpdates.full_name = updates.name;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.avatar) dbUpdates.avatar_url = updates.avatar;
+
+    await updateProfileDB(user.id, dbUpdates);
+    setUser({ ...user, ...updates });
   };
 
-  const getOrders = (): Order[] => {
-    if (!user) return [];
-    const key = `orders_${user.id}`;
-    return JSON.parse(localStorage.getItem(key) || '[]');
+  const saveOrder = async (_order: Order) => {
+    // Orders are saved directly in CheckoutPage via supabaseService.createOrder
+    // This stub exists for interface compatibility
   };
+
+  const getOrders = async (): Promise<Order[]> => {
+    if (!user) return [];
+    return getOrdersByUser(user.id);
+  };
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   return (
-    <UserContext.Provider value={{ user, login, logout, updateProfile, isAuthenticated: !!user, saveOrder, getOrders, isLoading }}>
+    <UserContext.Provider value={{
+      user,
+      login,
+      register,
+      logout,
+      updateProfile,
+      isAuthenticated: !!user,
+      isAdmin,
+      saveOrder,
+      getOrders,
+      isLoading,
+    }}>
       {children}
     </UserContext.Provider>
   );

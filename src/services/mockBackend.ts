@@ -203,10 +203,10 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 const INITIAL_CATEGORIES: Category[] = [
-  { 
-    id: 'pc-gamer', 
-    name: 'PC Gamer', 
-    icon: 'Monitor', 
+  {
+    id: 'pc-gamer',
+    name: 'PC Gamer',
+    icon: 'Monitor',
     subCategories: [
       { id: 'starter', name: 'PC Gamer Starter', image: 'https://picsum.photos/seed/cat1/300/200' },
       { id: 'pro', name: 'PC Gamer Pro', image: 'https://picsum.photos/seed/cat2/300/200' },
@@ -220,10 +220,10 @@ const INITIAL_CATEGORIES: Category[] = [
       { id: 'ram', name: 'RAM', type: 'checkbox', options: ['8GB', '16GB', '32GB', '64GB'] }
     ]
   },
-  { 
-    id: 'components', 
-    name: 'COMPOSANTS', 
-    icon: 'Cpu', 
+  {
+    id: 'components',
+    name: 'COMPOSANTS',
+    icon: 'Cpu',
     subCategories: [
       { id: 'cpu', name: 'Processeurs', image: 'https://picsum.photos/seed/cpu/300/200' },
       { id: 'gpu', name: 'Cartes Graphiques', image: 'https://picsum.photos/seed/gpu/300/200' },
@@ -236,10 +236,10 @@ const INITIAL_CATEGORIES: Category[] = [
       { id: 'subCategory', name: 'Type', type: 'checkbox', options: ['Processeurs', 'Cartes Graphiques', 'Mémoire RAM', 'Cartes Mères'] }
     ]
   },
-  { 
-    id: 'peripherals', 
-    name: 'PÉRIPHÉRIQUE PC', 
-    icon: 'Keyboard', 
+  {
+    id: 'peripherals',
+    name: 'PÉRIPHÉRIQUE PC',
+    icon: 'Keyboard',
     subCategories: [
       { id: 'keyboard', name: 'Claviers Gamer', image: 'https://picsum.photos/seed/kb/300/200' },
       { id: 'mouse', name: 'Souris Gamer', image: 'https://picsum.photos/seed/mouse/300/200' },
@@ -251,10 +251,10 @@ const INITIAL_CATEGORIES: Category[] = [
       { id: 'subCategory', name: 'Type', type: 'checkbox', options: ['Claviers Gamer', 'Souris Gamer', 'Casques Gamer'] }
     ]
   },
-  { 
-    id: 'monitors', 
-    name: 'ÉCRANS & MONITEURS PC', 
-    icon: 'MonitorPlay', 
+  {
+    id: 'monitors',
+    name: 'ÉCRANS & MONITEURS PC',
+    icon: 'MonitorPlay',
     subCategories: [
       { id: 'gaming-monitor', name: 'Écrans Gamer', image: 'https://picsum.photos/seed/monitor/300/200' },
       { id: 'office-monitor', name: 'Écrans Bureautique', image: 'https://picsum.photos/seed/monitor2/300/200' }
@@ -284,7 +284,9 @@ const INITIAL_SITE_CONFIG: SiteConfig = {
   hero: {
     title: 'LEVEL UP YOUR GAMING EXPERIENCE',
     subtitle: 'Découvrez nos PC Gamer assemblés avec passion pour des performances extrêmes.',
-    image: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?q=80&w=2574&auto=format&fit=crop'
+    image: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?q=80&w=2574&auto=format&fit=crop',
+    videoUrl: '',
+    bgType: 'image'
   },
   contact: {
     phone: '+212 5 22 00 00 00',
@@ -428,7 +430,7 @@ class MockBackendService {
       this.set('users', users);
     }
   }
-  
+
   getStores(): Store[] {
     return this.get('stores', INITIAL_STORES);
   }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { mockBackend } from '../services/mockBackend';
+import { getProducts, getCategories } from '../services/supabaseService';
 import { Product, Category, FilterOption } from '../types';
 import ProductCard from '../components/ProductCard';
 import { Filter, Search, ChevronDown, ChevronUp } from 'lucide-react';
@@ -10,7 +10,7 @@ export default function CategoryPage() {
   const [category, setCategory] = useState<Category | null>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  
+
   // Dynamic filters state: { [filterId]: selectedValues }
   // For range: [min, max]
   // For checkbox: string[]
@@ -18,34 +18,35 @@ export default function CategoryPage() {
   const [expandedFilters, setExpandedFilters] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const categories = mockBackend.getCategories();
-    const currentCategory = categories.find(c => c.id === slug);
-    setCategory(currentCategory || null);
+    const load = async () => {
+      const [categories, allProds] = await Promise.all([getCategories(), getProducts()]);
+      const currentCategory = categories.find(c => c.id === slug);
+      setCategory(currentCategory || null);
 
-    if (currentCategory) {
-      const data = mockBackend.getProducts();
-      const categoryProducts = data.filter(p => p.category === currentCategory.name);
-      setAllProducts(categoryProducts);
-      setProducts(categoryProducts);
+      if (currentCategory) {
+        const categoryProducts = allProds.filter(p => p.category === currentCategory.name);
+        setAllProducts(categoryProducts);
+        setProducts(categoryProducts);
 
-      // Initialize filters
-      const initialFilters: Record<string, any> = {};
-      const initialExpanded: Record<string, boolean> = {};
-      
-      currentCategory.filters?.forEach(filter => {
-        initialExpanded[filter.id] = true;
-        if (filter.type === 'range') {
-          initialFilters[filter.id] = [filter.min || 0, filter.max || 10000];
-        } else {
-          initialFilters[filter.id] = [];
-        }
-      });
-      setSelectedFilters(initialFilters);
-      setExpandedFilters(initialExpanded);
-    } else {
-      setAllProducts([]);
-      setProducts([]);
-    }
+        // Initialize filters
+        const initialFilters: Record<string, any> = {};
+        const initialExpanded: Record<string, boolean> = {};
+        currentCategory.filters?.forEach(filter => {
+          initialExpanded[filter.id] = true;
+          if (filter.type === 'range') {
+            initialFilters[filter.id] = [filter.min || 0, filter.max || 10000];
+          } else {
+            initialFilters[filter.id] = [];
+          }
+        });
+        setSelectedFilters(initialFilters);
+        setExpandedFilters(initialExpanded);
+      } else {
+        setAllProducts([]);
+        setProducts([]);
+      }
+    };
+    load();
   }, [slug]);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function CategoryPage() {
 
     category.filters.forEach(filter => {
       const selectedValue = selectedFilters[filter.id];
-      
+
       if (filter.type === 'range') {
         const [min, max] = selectedValue || [0, 1000000];
         // Assuming 'price' is the only range filter for now, or map filter.id to product property
@@ -72,7 +73,7 @@ export default function CategoryPage() {
             if (filter.id === 'subCategory' && p.subCategory) {
               return selectedValue.includes(p.subCategory);
             }
-            
+
             // Check specs
             if (p.specs && p.specs[filter.id]) {
               // Exact match or partial match? Let's try partial for specs like "Intel Core i5" vs "i5"
@@ -82,7 +83,7 @@ export default function CategoryPage() {
               if (!specValue) return false;
               return selectedValue.some((val: string) => specValue.includes(val));
             }
-            
+
             return false;
           });
         }
@@ -135,7 +136,7 @@ export default function CategoryPage() {
 
             {category.filters?.map(filter => (
               <div key={filter.id} className="mb-6 border-b border-gray-50 pb-6 last:border-0 last:pb-0">
-                <div 
+                <div
                   className="flex items-center justify-between cursor-pointer mb-4"
                   onClick={() => toggleFilterExpanded(filter.id)}
                 >
@@ -151,10 +152,10 @@ export default function CategoryPage() {
                           <span>{selectedFilters[filter.id]?.[0] || filter.min} MAD</span>
                           <span>{selectedFilters[filter.id]?.[1] || filter.max} MAD</span>
                         </div>
-                        <input 
-                          type="range" 
-                          min={filter.min} 
-                          max={filter.max} 
+                        <input
+                          type="range"
+                          min={filter.min}
+                          max={filter.max}
                           step={filter.step}
                           value={selectedFilters[filter.id]?.[1] || filter.max}
                           onChange={(e) => handleFilterChange(filter.id, [selectedFilters[filter.id]?.[0] || filter.min, parseInt(e.target.value)])}
@@ -167,11 +168,11 @@ export default function CategoryPage() {
                       <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                         {filter.options?.map(option => (
                           <label key={option} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:text-primary transition-colors">
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               checked={selectedFilters[filter.id]?.includes(option) || false}
                               onChange={() => toggleCheckboxFilter(filter.id, option)}
-                              className="rounded border-gray-300 text-primary focus:ring-primary" 
+                              className="rounded border-gray-300 text-primary focus:ring-primary"
                             />
                             {option}
                           </label>
@@ -199,7 +200,7 @@ export default function CategoryPage() {
           {category.subCategories && category.subCategories.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
               {category.subCategories.map(sub => (
-                <div 
+                <div
                   key={sub.id}
                   className="group relative overflow-hidden rounded-xl cursor-pointer shadow-sm hover:shadow-md transition-all hover:-translate-y-1"
                 >
@@ -221,17 +222,17 @@ export default function CategoryPage() {
           ) : (
             <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <p className="text-gray-500">Aucun produit ne correspond à vos critères.</p>
-              <button 
+              <button
                 onClick={() => {
-                   const initialFilters: Record<string, any> = {};
-                   category.filters?.forEach(filter => {
-                     if (filter.type === 'range') {
-                       initialFilters[filter.id] = [filter.min || 0, filter.max || 10000];
-                     } else {
-                       initialFilters[filter.id] = [];
-                     }
-                   });
-                   setSelectedFilters(initialFilters);
+                  const initialFilters: Record<string, any> = {};
+                  category.filters?.forEach(filter => {
+                    if (filter.type === 'range') {
+                      initialFilters[filter.id] = [filter.min || 0, filter.max || 10000];
+                    } else {
+                      initialFilters[filter.id] = [];
+                    }
+                  });
+                  setSelectedFilters(initialFilters);
                 }}
                 className="mt-4 text-primary font-bold hover:underline"
               >

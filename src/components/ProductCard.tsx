@@ -32,9 +32,10 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
 
       {/* Image */}
       <Link to={`/product/${product.id}`} className="block relative h-64 p-8 bg-white flex items-center justify-center group-hover:bg-gray-50 transition-colors">
-        <img 
-          src={product.image} 
-          alt={product.name} 
+        <img
+          src={product.image}
+          alt={product.name}
+          loading="lazy"
           className="max-h-full max-w-full object-contain transform group-hover:scale-110 transition-transform duration-500"
         />
       </Link>
@@ -101,7 +102,7 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
               <Heart size={16} />
             </button>
           </div>
-          <button 
+          <button
             onClick={() => addToCart(product)}
             className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary-dark transition-all hover:scale-110 shadow-lg shadow-primary/30"
           >
@@ -113,4 +114,4 @@ const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
   );
 };
 
-export default ProductCard;
+export default React.memo(ProductCard);

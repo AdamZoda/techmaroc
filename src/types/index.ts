@@ -65,6 +65,8 @@ export interface SiteConfig {
     title: string;
     subtitle: string;
     image: string;
+    videoUrl?: string;
+    bgType?: 'image' | 'video';
   };
   contact: {
     phone: string;
@@ -76,11 +78,16 @@ export interface SiteConfig {
 export interface Order {
   id: string;
   customerName: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  paymentMethod?: string;
   date: string;
   total: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered';
-  items: { 
-    productId: string; 
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  items: {
+    productId: string;
     quantity: number;
     name?: string;
     price?: number;
@@ -92,7 +99,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'superadmin' | 'user';
   status: 'active' | 'blocked';
   phone?: string;
   avatar?: string;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, ChevronRight } from 'lucide-react';
-import { mockBackend } from '../services/mockBackend';
+import { getProducts } from '../services/supabaseService';
 import ProductCard from '../components/ProductCard';
 import { Product } from '../types';
 
@@ -9,7 +9,7 @@ export default function NewArrivalsPage() {
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    setProducts(mockBackend.getProducts().filter(p => p.isNew));
+    getProducts().then(all => setProducts(all.filter(p => p.isNew)));
   }, []);
 
   return (

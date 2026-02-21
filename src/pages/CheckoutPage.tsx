@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { CheckCircle, CreditCard, Truck, ArrowRight, Download, Home, ChevronRight } from 'lucide-react';
+import { CheckCircle, CreditCard, Truck, ArrowRight, Download, Home, ChevronRight, Loader } from 'lucide-react';
+import { createOrder } from '../services/supabaseService';
 
 // OTP Input Component
 const OtpInput = ({ length, onComplete }: { length: number; onComplete: (otp: string) => void }) => {
@@ -47,7 +48,7 @@ export default function CheckoutPage() {
   const { items, total, clearCart, isCartLoading } = useCart();
   const { user, saveOrder, isLoading: isUserLoading } = useUser();
   const navigate = useNavigate();
-  
+
   const [step, setStep] = useState<'info' | 'phone' | 'payment' | 'success'>('info');
   const [formData, setFormData] = useState({
     name: '',
@@ -56,13 +57,15 @@ export default function CheckoutPage() {
     city: '',
     phone: ''
   });
-  
+
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [orderId, setOrderId] = useState('');
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [orderTotal, setOrderTotal] = useState(0);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
   useEffect(() => {
     if (isUserLoading || isCartLoading) return;
@@ -108,26 +111,44 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePlaceOrder = () => {
-    const newOrderId = `ORD-${Math.floor(Math.random() * 100000)}`;
+  const handlePlaceOrder = async () => {
+    if (!user) return;
+    setIsPlacingOrder(true);
+    setOrderError('');
+
+    const newOrderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const success = await createOrder({
+      id: newOrderId,
+      userId: user.id,
+      customerName: formData.name,
+      email: formData.email,
+      address: formData.address,
+      city: formData.city,
+      phone: formData.phone,
+      paymentMethod,
+      total,
+      date: new Date().toLocaleDateString('fr-FR'),
+      items: items.map(i => ({
+        productId: i.id,
+        quantity: i.quantity,
+        price: i.price,
+        name: i.name,
+        image: i.image,
+      })),
+    });
+
+    if (!success) {
+      setOrderError('Erreur lors de la création de la commande. Veuillez réessayer.');
+      setIsPlacingOrder(false);
+      return;
+    }
+
     setOrderId(newOrderId);
     setOrderItems([...items]);
     setOrderTotal(total);
-    
-    // Save order to user history
-    if (user) {
-      saveOrder({
-        id: newOrderId,
-        customerName: user.name,
-        date: new Date().toLocaleDateString(),
-        total: total,
-        status: 'confirmed',
-        items: items.map(i => ({ ...i, productId: i.id })) // Store full item details for simplicity in this mock
-      });
-    }
-    
     clearCart();
     setStep('success');
+    setIsPlacingOrder(false);
   };
 
   const generatePDF = async () => {
@@ -142,7 +163,7 @@ export default function CheckoutPage() {
       doc.setFontSize(20);
       doc.setTextColor(124, 58, 237); // Primary color
       doc.text('TECHMAROC', 14, 22);
-      
+
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text('Facture & Confirmation de Commande', 14, 28);
@@ -152,7 +173,7 @@ export default function CheckoutPage() {
       // Customer Info
       doc.setDrawColor(200);
       doc.line(14, 35, pageWidth - 14, 35);
-      
+
       doc.setFontSize(12);
       doc.setTextColor(0);
       doc.text('Informations Client:', 14, 45);
@@ -218,52 +239,52 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* Step 1: Info */}
             <div className={`bg-white p-6 rounded-2xl shadow-sm border transition-all ${step === 'info' ? 'border-primary ring-1 ring-primary' : 'border-gray-100 opacity-60'}`}>
               <div className="flex items-center gap-4 mb-4">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step === 'info' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>1</div>
                 <h2 className="text-lg font-bold">Informations de livraison</h2>
               </div>
-              
+
               {step === 'info' && (
                 <form onSubmit={handleInfoSubmit} className="space-y-4 ml-12">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
-                      <input 
+                      <input
                         required
                         value={formData.name}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
                         className="w-full p-3 border rounded-xl focus:ring-primary focus:border-primary"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input 
+                      <input
                         type="email"
                         required
                         value={formData.email}
-                        onChange={e => setFormData({...formData, email: e.target.value})}
+                        onChange={e => setFormData({ ...formData, email: e.target.value })}
                         className="w-full p-3 border rounded-xl focus:ring-primary focus:border-primary"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                    <input 
+                    <input
                       required
                       value={formData.address}
-                      onChange={e => setFormData({...formData, address: e.target.value})}
+                      onChange={e => setFormData({ ...formData, address: e.target.value })}
                       className="w-full p-3 border rounded-xl focus:ring-primary focus:border-primary"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
-                    <input 
+                    <input
                       required
                       value={formData.city}
-                      onChange={e => setFormData({...formData, city: e.target.value})}
+                      onChange={e => setFormData({ ...formData, city: e.target.value })}
                       className="w-full p-3 border rounded-xl focus:ring-primary focus:border-primary"
                     />
                   </div>
@@ -291,14 +312,14 @@ export default function CheckoutPage() {
                     <div className="space-y-4">
                       <p className="text-sm text-gray-600">Veuillez entrer votre numéro de téléphone pour recevoir un code de vérification.</p>
                       <div className="flex gap-2">
-                        <input 
+                        <input
                           type="tel"
                           placeholder="06 00 00 00 00"
                           value={formData.phone}
-                          onChange={e => setFormData({...formData, phone: e.target.value})}
+                          onChange={e => setFormData({ ...formData, phone: e.target.value })}
                           className="flex-1 p-3 border rounded-xl focus:ring-primary focus:border-primary"
                         />
-                        <button 
+                        <button
                           onClick={sendOtp}
                           className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors"
                         >
@@ -333,14 +354,14 @@ export default function CheckoutPage() {
               {step === 'payment' && (
                 <div className="ml-12 space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <button 
+                    <button
                       onClick={() => setPaymentMethod('cod')}
                       className={`p-4 border rounded-xl flex flex-col items-center gap-2 transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 hover:border-gray-300'}`}
                     >
                       <Truck size={24} />
                       <span className="font-bold text-sm">Paiement à la livraison</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => setPaymentMethod('card')}
                       className={`p-4 border rounded-xl flex flex-col items-center gap-2 transition-all ${paymentMethod === 'card' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 hover:border-gray-300'}`}
                     >
@@ -349,12 +370,22 @@ export default function CheckoutPage() {
                     </button>
                   </div>
 
+                  {orderError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
+                      {orderError}
+                    </div>
+                  )}
                   <div className="flex justify-end pt-4">
-                    <button 
+                    <button
                       onClick={handlePlaceOrder}
-                      className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+                      disabled={isPlacingOrder}
+                      className="w-full py-4 bg-primary text-white rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 disabled:opacity-70"
                     >
-                      CONFIRMER LA COMMANDE <ArrowRight size={20} />
+                      {isPlacingOrder ? (
+                        <><Loader size={20} className="animate-spin" /> Traitement en cours...</>
+                      ) : (
+                        <>CONFIRMER LA COMMANDE <ArrowRight size={20} /></>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -407,15 +438,15 @@ export default function CheckoutPage() {
             <p className="text-gray-600 mb-8">
               Merci pour votre commande. Votre numéro de suivi est <span className="font-bold text-gray-900">{orderId}</span>.
             </p>
-            
+
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={generatePDF}
                 className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={18} /> Télécharger la facture (PDF)
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/')}
                 className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
               >

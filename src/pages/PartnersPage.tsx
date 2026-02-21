@@ -1,18 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Home, ChevronRight, ExternalLink } from 'lucide-react';
+import { Home, ChevronRight } from 'lucide-react';
+import { getPartners } from '../services/supabaseService';
+import { Partner } from '../types';
 
 export default function PartnersPage() {
-  const partners = [
-    { name: 'ASUS ROG', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/de/ROG_logo.png', desc: 'Republic of Gamers' },
-    { name: 'MSI', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/8c/MSI_Logo_2019.svg', desc: 'True Gaming' },
-    { name: 'NVIDIA', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/21/Nvidia_logo.svg', desc: 'GeForce RTX' },
-    { name: 'AMD', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7c/AMD_Logo.svg', desc: 'Ryzen & Radeon' },
-    { name: 'Logitech G', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/17/Logitech_logo.svg', desc: 'Advanced Gaming Gear' },
-    { name: 'Corsair', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/36/Corsair_logo_2020.svg', desc: 'High Performance Gear' },
-    { name: 'Razer', logo: 'https://upload.wikimedia.org/wikipedia/en/4/40/Razer_snake_logo.svg', desc: 'For Gamers. By Gamers.' },
-    { name: 'Intel', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/85/Intel_logo_2023.svg', desc: 'Intel Core Processors' },
-  ];
+  const [partners, setPartners] = useState<Partner[]>([]);
+
+  useEffect(() => {
+    getPartners().then(setPartners);
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 pt-32">
